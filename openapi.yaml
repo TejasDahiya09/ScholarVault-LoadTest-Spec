@@ -1,0 +1,3119 @@
+openapi: 3.0.3
+info:
+  title: ScholarVault Backend API
+  version: 1.0.0
+  description: |
+    OpenAPI specification generated from the existing Express backend source for HTTP load testing.
+    Authentication uses Supabase access tokens supplied as `Authorization: Bearer <token>`.
+servers:
+  - url: https://scholarvault-backend.onrender.com
+    description: Production backend
+tags:
+  - name: Health
+  - name: Auth
+  - name: Public
+  - name: Subjects
+  - name: Notes
+  - name: Search
+  - name: Files
+  - name: Progress
+  - name: Bookmarks
+  - name: Completions
+  - name: Completed
+  - name: Uploads
+  - name: Feedback
+  - name: Admin
+  - name: Admin Uploads
+  - name: Admin Materials
+  - name: Admin Feedback
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Backend health status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  environment:
+                    type: string
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: Rate limited to 20 authentication attempts per 15 minutes per IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "429":
+          $ref: "#/components/responses/AuthRateLimited"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login a user
+      description: Rate limited to 20 authentication attempts per 15 minutes per IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: User logged in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "429":
+          $ref: "#/components/responses/AuthRateLimited"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current authenticated user profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/profile:
+    put:
+      tags: [Auth]
+      summary: Update profile name
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Updated user profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/year:
+    put:
+      tags: [Auth]
+      summary: Update selected year
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [year]
+              additionalProperties: false
+              properties:
+                year:
+                  oneOf:
+                    - type: integer
+                      minimum: 1
+                      maximum: 4
+                    - type: string
+      responses:
+        "200":
+          description: Updated user profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/preferences:
+    put:
+      tags: [Auth]
+      summary: Update user preferences
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreferencesRequest"
+      responses:
+        "200":
+          description: Updated user profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/account:
+    delete:
+      tags: [Auth]
+      summary: Delete authenticated user account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Account deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  message:
+                    type: string
+                    example: Account deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/reset-history:
+    post:
+      tags: [Auth]
+      summary: Reset study history
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Study history reset.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  message:
+                    type: string
+                  ok:
+                    type: boolean
+                  cleared:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                      nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/auth/export:
+    get:
+      tags: [Auth]
+      summary: Export authenticated user data
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User profile plus study data.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserProfile"
+                  bookmarks:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  completions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  material_study_sessions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/public/subjects:
+    get:
+      tags: [Public]
+      summary: List public subjects
+      security: []
+      responses:
+        "200":
+          description: Public subject listing.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subject"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/subjects:
+    get:
+      tags: [Subjects]
+      summary: List subjects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/YearQuery"
+        - $ref: "#/components/parameters/SemesterQuery"
+      responses:
+        "200":
+          description: Subjects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subject"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/subjects/progress-summary:
+    get:
+      tags: [Subjects]
+      summary: Get user progress summary for subjects
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/YearQuery"
+      responses:
+        "200":
+          description: Subject progress keyed by subject id.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              description: Set to no-store.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  progress:
+                    type: object
+                    additionalProperties:
+                      $ref: "#/components/schemas/SubjectProgress"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/subjects/{id}:
+    get:
+      tags: [Subjects]
+      summary: Get subject with grouped resources
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Subject with notes, books, PYQs, syllabus, and PPTs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectWithResources"
+        "404":
+          $ref: "#/components/responses/PlainNotFound"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/subjects/{id}/notes:
+    get:
+      tags: [Subjects]
+      summary: Get materials for a subject
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Subject notes/materials.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudyMaterial"
+        "404":
+          $ref: "#/components/responses/PlainNotFound"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/subjects/{id}/progress:
+    get:
+      tags: [Subjects]
+      summary: Get authenticated user's progress for a subject
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Subject progress.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              description: Set to no-store.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectProgress"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/subjects/{id}/units:
+    get:
+      tags: [Subjects]
+      summary: Get subject units
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Units found from active note materials.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/notes:
+    get:
+      tags: [Notes]
+      summary: List active study materials
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subjectId
+          in: query
+          schema:
+            type: string
+        - name: subject_id
+          in: query
+          schema:
+            type: string
+        - name: materialType
+          in: query
+          schema:
+            $ref: "#/components/schemas/MaterialType"
+        - name: material_type
+          in: query
+          schema:
+            $ref: "#/components/schemas/MaterialType"
+      responses:
+        "200":
+          description: Active study materials.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudyMaterial"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/notes/metadata:
+    get:
+      tags: [Notes]
+      summary: List material metadata
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Active study material metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudyMaterial"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/notes/subjects/{subjectId}:
+    get:
+      tags: [Notes]
+      summary: List materials by subject
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: materialType
+          in: query
+          schema:
+            $ref: "#/components/schemas/MaterialType"
+        - name: material_type
+          in: query
+          schema:
+            $ref: "#/components/schemas/MaterialType"
+      responses:
+        "200":
+          description: Materials for subject.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudyMaterial"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/notes/{id}/search:
+    get:
+      tags: [Notes, Search]
+      summary: Search within a single note route
+      description: The router registers `{id}`, while the controller currently reads `req.params.noteId`; this spec follows the registered production path.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/SearchQueryRequired"
+        - $ref: "#/components/parameters/PageQuery"
+        - $ref: "#/components/parameters/PerPageQuery"
+      responses:
+        "200":
+          description: Search results scoped by note when controller receives the note id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/notes/{id}:
+    get:
+      tags: [Notes]
+      summary: Get active study material by id
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Study material.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyMaterial"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PlainNotFound"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/search:
+    get:
+      tags: [Search]
+      summary: Search active study material metadata
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SearchQueryRequired"
+        - name: subjectId
+          in: query
+          schema:
+            type: string
+        - name: noteId
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/YearQuery"
+        - $ref: "#/components/parameters/PageQuery"
+        - $ref: "#/components/parameters/PerPageQuery"
+      responses:
+        "200":
+          description: Paginated search results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/search/suggest:
+    get:
+      tags: [Search]
+      summary: Get autocomplete suggestions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - $ref: "#/components/parameters/YearQuery"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Suggestion strings.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/files/signed-url:
+    get:
+      tags: [Files]
+      summary: Generate signed S3 or CloudFront file URL
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [view, download]
+      responses:
+        "200":
+          description: Signed file access URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignedFileResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/progress/session/start:
+    post:
+      tags: [Progress]
+      summary: Start deprecated generic study session
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartedAtRequest"
+      responses:
+        "200":
+          description: Deprecated session response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkSessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/progress/session/end:
+    post:
+      tags: [Progress]
+      summary: End deprecated generic study session
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndedAtRequest"
+      responses:
+        "200":
+          description: Deprecated session response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkSessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/progress/material/{materialId}/start:
+    post:
+      tags: [Progress]
+      summary: Start material study session
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartedAtRequest"
+      responses:
+        "200":
+          description: Started study session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkSessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/progress/material/{materialId}/end:
+    post:
+      tags: [Progress]
+      summary: End material study session
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndedAtRequest"
+      responses:
+        "200":
+          description: Ended study session or closed zero sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndSessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/progress/note/{materialId}/start:
+    post:
+      tags: [Progress]
+      summary: Start note study session alias
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartedAtRequest"
+      responses:
+        "200":
+          description: Started study session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkSessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/progress/note/{materialId}/end:
+    post:
+      tags: [Progress]
+      summary: End note study session alias
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialIdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndedAtRequest"
+      responses:
+        "200":
+          description: Ended study session or closed zero sessions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndSessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/progress/analytics:
+    get:
+      tags: [Progress]
+      summary: Get authenticated user's progress analytics
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Aggregated user progress analytics.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              description: Set to no-store.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressAnalytics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/bookmarks:
+    get:
+      tags: [Bookmarks]
+      summary: List current user's bookmarked material ids
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Bookmark ids.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaterialIdsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+    post:
+      tags: [Bookmarks]
+      summary: Add a bookmark
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaterialIdBody"
+      responses:
+        "200":
+          description: Bookmark added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookmarkMutationResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/bookmarks/details:
+    get:
+      tags: [Bookmarks]
+      summary: List bookmark details
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Detailed bookmarks.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  bookmarks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BookmarkDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/bookmarks/{materialId}:
+    delete:
+      tags: [Bookmarks]
+      summary: Remove a bookmark
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialIdPath"
+      responses:
+        "200":
+          description: Bookmark removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookmarkMutationResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/completions:
+    get:
+      tags: [Completions]
+      summary: List current user's completed material ids
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subjectId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Completion ids.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaterialIdsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+    post:
+      tags: [Completions]
+      summary: Mark a note material complete
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompletionBody"
+      responses:
+        "200":
+          description: Completion added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionMutationResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/completions/count:
+    get:
+      tags: [Completions]
+      summary: Count current user's completed materials
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Completion count.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  count:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/completions/{materialId}:
+    delete:
+      tags: [Completions]
+      summary: Mark a note material incomplete
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialIdPath"
+      responses:
+        "200":
+          description: Completion removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionMutationResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/completed:
+    get:
+      tags: [Completed]
+      summary: Compatibility endpoint for completed material details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subjectId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Completion id pairs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    material_id:
+                      type: string
+                    note_id:
+                      type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/completed/toggle:
+    post:
+      tags: [Completed]
+      summary: Toggle note material completion
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompletionBody"
+      responses:
+        "200":
+          description: Toggled completion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToggleCompletedResponse"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/uploads:
+    post:
+      tags: [Uploads]
+      summary: Submit a community material upload
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadCreateRequest"
+      responses:
+        "201":
+          description: Upload submitted.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  success:
+                    type: boolean
+                  upload:
+                    $ref: "#/components/schemas/UserUpload"
+                  message:
+                    type: string
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PlainNotFound"
+        "413":
+          $ref: "#/components/responses/PlainPayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/PlainUnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/uploads/my:
+    get:
+      tags: [Uploads]
+      summary: List current user's uploads
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current user's uploads.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  uploads:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserUpload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/uploads/{id}:
+    get:
+      tags: [Uploads]
+      summary: Get one owned upload
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Owned upload.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  upload:
+                    $ref: "#/components/schemas/UserUpload"
+        "400":
+          $ref: "#/components/responses/PlainBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/PlainForbidden"
+        "404":
+          $ref: "#/components/responses/PlainNotFound"
+        "500":
+          $ref: "#/components/responses/PlainServerError"
+  /api/feedback:
+    post:
+      tags: [Feedback]
+      summary: Submit feedback
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/FeedbackCreateRequest"
+      responses:
+        "201":
+          description: Feedback submitted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/ApiPayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/ApiUnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/feedback/my:
+    get:
+      tags: [Feedback]
+      summary: List current user's feedback
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current user's feedback.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/feedback/{id}:
+    get:
+      tags: [Feedback]
+      summary: Get owned feedback by UUID or reference id
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Feedback detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin:
+    get:
+      tags: [Admin]
+      summary: Verify admin access
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Admin access verified.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          role:
+                            type: string
+                            enum: [admin]
+                          message:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/overview:
+    get:
+      tags: [Admin]
+      summary: Get admin overview metrics
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Admin overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverviewEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/pending:
+    get:
+      tags: [Admin Uploads]
+      summary: List pending uploads for review
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Pending upload queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/approved:
+    get:
+      tags: [Admin Uploads]
+      summary: List approved uploads available for publishing
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Approved upload queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/statistics:
+    get:
+      tags: [Admin Uploads]
+      summary: Get pending upload statistics
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Pending upload statistics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadStatsEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/{id}:
+    get:
+      tags: [Admin Uploads]
+      summary: Get upload review detail
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Upload review detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadDetailEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/{id}/download:
+    get:
+      tags: [Admin Uploads]
+      summary: Get original upload download URL
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Signed original upload download URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOriginalFileEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "409":
+          $ref: "#/components/responses/ApiConflict"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/{id}/preview:
+    get:
+      tags: [Admin Uploads]
+      summary: Get original upload preview URL
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Signed original upload preview URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOriginalPreviewEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "409":
+          $ref: "#/components/responses/ApiConflict"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/{id}/start-review:
+    post:
+      tags: [Admin Uploads]
+      summary: Start reviewing an upload
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Updated upload review detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadDetailEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/{id}/approve:
+    post:
+      tags: [Admin Uploads]
+      summary: Approve reviewed upload metadata
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Approved upload review detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadDetailEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/{id}/reject:
+    post:
+      tags: [Admin Uploads]
+      summary: Reject an upload
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+                rejectionReason:
+                  type: string
+                  maxLength: 500
+      responses:
+        "200":
+          description: Rejected upload review detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadDetailEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/uploads/{id}/approved-source:
+    delete:
+      tags: [Admin Uploads]
+      summary: Archive an approved upload source
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Approved upload archived from source downloads.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminArchiveUploadEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "409":
+          $ref: "#/components/responses/ApiConflict"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/materials:
+    get:
+      tags: [Admin Materials]
+      summary: List production materials
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Production materials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMaterialListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+    post:
+      tags: [Admin Materials]
+      summary: Upload a production material
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AdminMaterialCreateRequest"
+      responses:
+        "201":
+          description: Production material created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMaterialCreateEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "413":
+          $ref: "#/components/responses/PlainPayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/PlainUnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/materials/{id}:
+    patch:
+      tags: [Admin Materials]
+      summary: Update production material metadata
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminMaterialUpdateRequest"
+      responses:
+        "200":
+          description: Material updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMaterialEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+    delete:
+      tags: [Admin Materials]
+      summary: Archive production material for deletion
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Material archived.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMaterialDeleteEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "409":
+          $ref: "#/components/responses/ApiConflict"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/feedback:
+    get:
+      tags: [Admin Feedback]
+      summary: List all feedback
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Feedback list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/feedback/{id}:
+    get:
+      tags: [Admin Feedback]
+      summary: Get feedback detail as admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Feedback detail including internal timeline.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/feedback/{id}/status:
+    patch:
+      tags: [Admin Feedback]
+      summary: Change feedback status
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              additionalProperties: false
+              properties:
+                status:
+                  $ref: "#/components/schemas/FeedbackStatus"
+      responses:
+        "200":
+          description: Updated feedback detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "409":
+          $ref: "#/components/responses/ApiConflict"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+  /api/admin/feedback/{id}/internal-note:
+    patch:
+      tags: [Admin Feedback]
+      summary: Add an internal note to feedback
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              additionalProperties: false
+              properties:
+                note:
+                  type: string
+                  minLength: 2
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Feedback detail with internal note.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackEnvelope"
+        "400":
+          $ref: "#/components/responses/ApiBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ApiForbidden"
+        "404":
+          $ref: "#/components/responses/ApiNotFound"
+        "500":
+          $ref: "#/components/responses/ApiServerError"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Supabase access token
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: UUID unless an endpoint also accepts a generated public/reference id.
+    MaterialIdPath:
+      name: materialId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    YearQuery:
+      name: year
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 4
+    SemesterQuery:
+      name: semester
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 8
+    SearchQueryRequired:
+      name: q
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    PageQuery:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    PerPageQuery:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+  responses:
+    Unauthorized:
+      description: Missing, invalid, or expired bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PlainError"
+    PlainBadRequest:
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PlainError"
+    PlainForbidden:
+      description: Forbidden.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PlainError"
+    PlainNotFound:
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PlainError"
+    PlainPayloadTooLarge:
+      description: Payload too large.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PlainError"
+    PlainUnsupportedMediaType:
+      description: Unsupported media type.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PlainError"
+    PlainServerError:
+      description: Server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PlainError"
+    ApiBadRequest:
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
+    ApiForbidden:
+      description: Admin role or resource access required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
+    ApiNotFound:
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
+    ApiConflict:
+      description: Invalid resource state transition.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
+    ApiPayloadTooLarge:
+      description: Uploaded file exceeds endpoint size limit.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
+    ApiUnsupportedMediaType:
+      description: Uploaded file type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
+    ApiServerError:
+      description: Server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
+    AuthRateLimited:
+      description: Too many authentication attempts.
+      headers:
+        RateLimit-Limit:
+          schema:
+            type: integer
+        RateLimit-Remaining:
+          schema:
+            type: integer
+        RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              error:
+                type: string
+              retryAfter:
+                type: string
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+    MaterialType:
+      type: string
+      enum: [note, pyq, ppt, book, syllabus]
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: true
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        name:
+          type: string
+        selected_year:
+          type: integer
+          minimum: 1
+          maximum: 4
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    AuthResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          nullable: true
+          description: Supabase access token when a session is returned.
+        user:
+          $ref: "#/components/schemas/UserProfile"
+    UserProfile:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [student, admin]
+        provider:
+          type: string
+        selected_year:
+          type: integer
+          nullable: true
+        email_notifications:
+          type: boolean
+        analytics_sharing:
+          type: boolean
+        study_goal:
+          type: string
+        notifications_enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+    PreferencesRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email_notifications:
+          type: boolean
+        analytics_sharing:
+          type: boolean
+        selected_year:
+          type: integer
+          minimum: 1
+          maximum: 4
+        study_goal:
+          type: string
+        notifications_enabled:
+          type: boolean
+    Subject:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        year:
+          type: integer
+        semester:
+          type: integer
+        name:
+          type: string
+        branch:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SubjectSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+        year:
+          type: integer
+        semester:
+          type: integer
+    StudyMaterial:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        subject_id:
+          $ref: "#/components/schemas/Uuid"
+        material_id:
+          $ref: "#/components/schemas/Uuid"
+        note_id:
+          $ref: "#/components/schemas/Uuid"
+        material_type:
+          $ref: "#/components/schemas/MaterialType"
+        unit_number:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        file_name:
+          type: string
+        s3_key:
+          type: string
+        s3_url:
+          type: string
+        file_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+          nullable: true
+        exam_year:
+          type: integer
+          nullable: true
+        exam_type:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        subject:
+          type: string
+          nullable: true
+        semester:
+          type: integer
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        branch:
+          type: string
+          nullable: true
+    SubjectWithResources:
+      allOf:
+        - $ref: "#/components/schemas/Subject"
+        - type: object
+          properties:
+            notes:
+              type: array
+              items:
+                $ref: "#/components/schemas/StudyMaterial"
+            books:
+              type: array
+              items:
+                $ref: "#/components/schemas/StudyMaterial"
+            pyqs:
+              type: array
+              items:
+                $ref: "#/components/schemas/StudyMaterial"
+            syllabus:
+              type: array
+              items:
+                $ref: "#/components/schemas/StudyMaterial"
+            ppts:
+              type: array
+              items:
+                $ref: "#/components/schemas/StudyMaterial"
+    SubjectProgress:
+      type: object
+      additionalProperties: false
+      properties:
+        progress_percent:
+          type: integer
+        completed_units:
+          type: integer
+        total_units:
+          type: integer
+        completed_note_ids:
+          type: array
+          items:
+            type: string
+        completed_material_ids:
+          type: array
+          items:
+            type: string
+    SearchResult:
+      allOf:
+        - $ref: "#/components/schemas/StudyMaterial"
+        - type: object
+          properties:
+            snippet:
+              type: string
+            match_count:
+              type: integer
+            keyword_match:
+              type: boolean
+            similarity:
+              type: number
+            weighted_score:
+              type: number
+    SearchResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        grouped_results:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/SearchResult"
+        total_results:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+        next_page:
+          type: integer
+          nullable: true
+        did_you_mean:
+          type: string
+          nullable: true
+        performance:
+          type: object
+          additionalProperties: false
+          properties:
+            cached:
+              type: boolean
+            result_count:
+              type: integer
+    SignedFileResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          format: uri
+        provider:
+          type: string
+          enum: [cloudfront, s3]
+        expiresIn:
+          type: integer
+        mode:
+          type: string
+          nullable: true
+        warning:
+          type: string
+    StartedAtRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+    EndedAtRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        endedAt:
+          type: string
+          format: date-time
+    StudySession:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        user_id:
+          $ref: "#/components/schemas/Uuid"
+        material_id:
+          $ref: "#/components/schemas/Uuid"
+        subject_id:
+          $ref: "#/components/schemas/Uuid"
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_seconds:
+          type: integer
+    OkSessionResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+        session:
+          oneOf:
+            - $ref: "#/components/schemas/StudySession"
+            - type: object
+              additionalProperties: true
+    EndSessionResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+        closed:
+          type: integer
+        session:
+          $ref: "#/components/schemas/StudySession"
+    ProgressAnalytics:
+      type: object
+      additionalProperties: false
+      properties:
+        stats:
+          type: object
+          additionalProperties: false
+          properties:
+            totalTimeHours:
+              type: integer
+            completedUnitsTotal:
+              type: integer
+            currentStreak:
+              type: integer
+            longestStreak:
+              type: integer
+            peakStudyTime:
+              type: string
+              nullable: true
+              enum: [morning, afternoon, evening, night]
+        weekly:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyProgress"
+        monthly:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyProgress"
+        subjectTime:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              subject_id:
+                $ref: "#/components/schemas/Uuid"
+              subject_name:
+                type: string
+              hours:
+                type: number
+              minutes:
+                type: integer
+        velocity:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              week:
+                type: string
+              count:
+                type: integer
+    DailyProgress:
+      type: object
+      additionalProperties: false
+      properties:
+        date:
+          type: string
+          format: date
+        day:
+          type: string
+        minutes:
+          type: integer
+        completed:
+          type: integer
+        isToday:
+          type: boolean
+    MaterialIdsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        materialIds:
+          type: array
+          items:
+            type: string
+        noteIds:
+          type: array
+          items:
+            type: string
+    MaterialIdBody:
+      type: object
+      additionalProperties: true
+      properties:
+        materialId:
+          type: string
+        material_id:
+          type: string
+        noteId:
+          type: string
+    CompletionBody:
+      allOf:
+        - $ref: "#/components/schemas/MaterialIdBody"
+        - type: object
+          properties:
+            subjectId:
+              type: string
+            subject_id:
+              type: string
+    BookmarkMutationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+        materialId:
+          type: string
+        noteId:
+          type: string
+        bookmarked:
+          type: boolean
+    CompletionMutationResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+        materialId:
+          type: string
+        noteId:
+          type: string
+        subjectId:
+          type: string
+          nullable: true
+        completed:
+          type: boolean
+    ToggleCompletedResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        materialId:
+          type: string
+        noteId:
+          type: string
+        completed:
+          type: boolean
+    BookmarkDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        material_id:
+          type: string
+        note_id:
+          type: string
+        study_materials:
+          $ref: "#/components/schemas/StudyMaterial"
+        notes:
+          $ref: "#/components/schemas/StudyMaterial"
+    UploadCreateRequest:
+      type: object
+      required: [file, subjectId, materialType, title]
+      additionalProperties: true
+      properties:
+        file:
+          type: string
+          format: binary
+          description: PDF, PPT, or PPTX file up to 50 MB.
+        subjectId:
+          type: string
+          format: uuid
+        subject_id:
+          type: string
+          format: uuid
+        materialType:
+          $ref: "#/components/schemas/MaterialType"
+        material_type:
+          $ref: "#/components/schemas/MaterialType"
+        title:
+          type: string
+          minLength: 5
+          maxLength: 150
+        description:
+          type: string
+          maxLength: 1000
+        unit:
+          type: integer
+          minimum: 1
+          maximum: 20
+        academicYear:
+          type: string
+          maxLength: 100
+        academic_year:
+          type: string
+          maxLength: 100
+    UserUpload:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+        subjectId:
+          type: string
+        userId:
+          type: string
+        materialType:
+          $ref: "#/components/schemas/MaterialType"
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        unit:
+          type: integer
+          nullable: true
+        academicYear:
+          type: string
+          nullable: true
+        fileName:
+          type: string
+        normalizedFileName:
+          type: string
+        originalExtension:
+          type: string
+        fileSize:
+          type: integer
+          format: int64
+        mimeType:
+          type: string
+        status:
+          type: string
+        reviewStatus:
+          type: string
+        reviewState:
+          type: string
+        reviewedBy:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        subject:
+          $ref: "#/components/schemas/SubjectSummary"
+        uploader:
+          $ref: "#/components/schemas/Uploader"
+    FeedbackCreateRequest:
+      type: object
+      required: [category, title, description]
+      additionalProperties: true
+      properties:
+        category:
+          type: string
+          enum: [bug, feature, missing_material, incorrect_material, general, other]
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+          description: Accepted only for bug reports.
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        pageUrl:
+          type: string
+          maxLength: 500
+        page_url:
+          type: string
+          maxLength: 500
+        browser:
+          type: string
+          maxLength: 200
+        platform:
+          type: string
+          maxLength: 200
+        os:
+          type: string
+          maxLength: 200
+        viewport:
+          type: string
+          maxLength: 100
+        materialId:
+          type: string
+          format: uuid
+        material_id:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        subject_id:
+          type: string
+          format: uuid
+        screenshot:
+          type: string
+          format: binary
+          description: Optional PNG, JPG, JPEG, or WEBP screenshot up to 10 MB.
+    Feedback:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        referenceId:
+          type: string
+          example: FB-000001
+        userId:
+          type: string
+          format: uuid
+        category:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          nullable: true
+        rating:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/FeedbackStatus"
+        screenshotPath:
+          type: string
+          nullable: true
+        pageUrl:
+          type: string
+          nullable: true
+        browser:
+          type: string
+          nullable: true
+        platform:
+          type: string
+          nullable: true
+        viewport:
+          type: string
+          nullable: true
+        materialId:
+          type: string
+          nullable: true
+        subjectId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        subject:
+          type: object
+          nullable: true
+          additionalProperties: true
+        material:
+          type: object
+          nullable: true
+          additionalProperties: true
+        user:
+          type: object
+          nullable: true
+          additionalProperties: true
+        screenshot:
+          type: object
+          nullable: true
+          additionalProperties: false
+          properties:
+            path:
+              type: string
+            url:
+              type: string
+              nullable: true
+        timeline:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        internalNotes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    FeedbackStatus:
+      type: string
+      enum: [received, under_review, planned, resolved, closed]
+    FeedbackEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                feedback:
+                  $ref: "#/components/schemas/Feedback"
+    FeedbackListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                feedback:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Feedback"
+    Uploader:
+      type: object
+      nullable: true
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        joinedAt:
+          type: string
+          format: date-time
+          nullable: true
+        totalContributions:
+          type: integer
+          nullable: true
+    AdminUploadQueueItem:
+      allOf:
+        - $ref: "#/components/schemas/UserUpload"
+        - type: object
+          properties:
+            isNew:
+              type: boolean
+            publishStatus:
+              type: string
+            publishedAt:
+              type: string
+              format: date-time
+              nullable: true
+    AdminUploadListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                uploads:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/AdminUploadQueueItem"
+    AdminUploadDetailEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                upload:
+                  $ref: "#/components/schemas/UserUpload"
+                subject:
+                  $ref: "#/components/schemas/SubjectSummary"
+                user:
+                  $ref: "#/components/schemas/Uploader"
+                storage:
+                  type: object
+                  additionalProperties: true
+                preview:
+                  $ref: "#/components/schemas/PreviewFile"
+    AdminUploadStatsEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                pendingUploads:
+                  type: integer
+                todaysUploads:
+                  type: integer
+                waitingOverSevenDays:
+                  type: integer
+                newestUpload:
+                  type: object
+                  nullable: true
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: string
+                    title:
+                      type: string
+                    createdAt:
+                      type: string
+                      format: date-time
+    PreviewFile:
+      type: object
+      additionalProperties: false
+      properties:
+        canEmbed:
+          type: boolean
+        type:
+          type: string
+          enum: [pdf, external, unavailable]
+        url:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          nullable: true
+        expiresIn:
+          type: integer
+          nullable: true
+        mode:
+          type: string
+          nullable: true
+    AdminOriginalFileEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                upload:
+                  type: object
+                  additionalProperties: true
+                file:
+                  $ref: "#/components/schemas/SignedFileResponse"
+    AdminOriginalPreviewEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/AdminOriginalFileEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                preview:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    canEmbed:
+                      type: boolean
+                    type:
+                      type: string
+                      enum: [pdf, external]
+    AdminArchiveUploadEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                uploadId:
+                  type: string
+                publishStatus:
+                  type: string
+                  enum: [archived]
+    AdminMaterial:
+      type: object
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        materialType:
+          $ref: "#/components/schemas/MaterialType"
+        unitNumber:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        academicSession:
+          type: string
+          nullable: true
+        fileName:
+          type: string
+        storageKey:
+          type: string
+        fileUrl:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: integer
+          format: int64
+        uploadedByAdmin:
+          type: string
+          nullable: true
+        contributorUserId:
+          type: string
+          nullable: true
+        sourceUploadId:
+          type: string
+          nullable: true
+        status:
+          type: string
+        archivedAt:
+          type: string
+          nullable: true
+        archivedBy:
+          type: string
+          nullable: true
+        deleteAfter:
+          type: string
+          nullable: true
+        deletedAt:
+          type: string
+          nullable: true
+        deletedBy:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        subject:
+          $ref: "#/components/schemas/SubjectSummary"
+        year:
+          type: integer
+          nullable: true
+    ProductionFile:
+      type: object
+      additionalProperties: false
+      properties:
+        bucket:
+          type: string
+        storageKey:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          format: int64
+        mimeType:
+          type: string
+    AdminMaterialListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                materials:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/AdminMaterial"
+    AdminMaterialEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                material:
+                  $ref: "#/components/schemas/AdminMaterial"
+    AdminMaterialCreateEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                material:
+                  $ref: "#/components/schemas/AdminMaterial"
+                productionFile:
+                  $ref: "#/components/schemas/ProductionFile"
+    AdminMaterialDeleteEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                archived:
+                  type: boolean
+                material:
+                  $ref: "#/components/schemas/AdminMaterial"
+                deleteAfter:
+                  type: string
+                  format: date-time
+    AdminMaterialCreateRequest:
+      type: object
+      required: [file, year, subjectId, materialType, title]
+      additionalProperties: true
+      properties:
+        file:
+          type: string
+          format: binary
+          description: PDF, PPT, or PPTX file up to 50 MB.
+        year:
+          type: integer
+          minimum: 1
+          maximum: 4
+        subjectId:
+          type: string
+          format: uuid
+        subject_id:
+          type: string
+          format: uuid
+        materialType:
+          $ref: "#/components/schemas/MaterialType"
+        material_type:
+          $ref: "#/components/schemas/MaterialType"
+        documentType:
+          $ref: "#/components/schemas/MaterialType"
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+        name:
+          type: string
+          minLength: 3
+          maxLength: 150
+        sourceUploadId:
+          type: string
+        source_upload_id:
+          type: string
+    AdminMaterialUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        year:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: Required when changing subject.
+        subjectId:
+          type: string
+          format: uuid
+        subject_id:
+          type: string
+          format: uuid
+        materialType:
+          $ref: "#/components/schemas/MaterialType"
+        material_type:
+          $ref: "#/components/schemas/MaterialType"
+        documentType:
+          $ref: "#/components/schemas/MaterialType"
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+        name:
+          type: string
+          minLength: 3
+          maxLength: 150
+    AdminOverviewEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              properties:
+                metrics:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    users:
+                      type: integer
+                    subjects:
+                      type: integer
+                    activeMaterials:
+                      type: integer
+                    archivedMaterials:
+                      type: integer
+                    pendingUploads:
+                      type: integer
+                    todaysUploads:
+                      type: integer
+                    studyHours:
+                      type: number
+                popularSubjects:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      year:
+                        type: integer
+                      materials:
+                        type: integer
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      additionalProperties: true
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+    PlainError:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          type: string
+    ApiErrorEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+            message:
+              type: string
